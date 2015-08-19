@@ -63,8 +63,6 @@ _boot:
 	sti
 
 	call _util_clear			; clear screen
-	mov si, _msg_boot
-	call _util_print			; print boot message
 	mov si, _msg_load
 	call _util_print			; print load message
 
@@ -93,11 +91,8 @@ _boot:
 ; Boot String Section
 ; ========================
 
-_msg_boot:
-	db 0x0d, 0x0a, '-=CalicOS=-', 0x00
-
 _msg_load:
-	db 0x0d, 0x0a, '** Loading bootloader... ', 0x00
+	db 'Loading bootloader... ', 0x00
 
 ; ========================
 ; Boot Fill Section

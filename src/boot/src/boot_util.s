@@ -83,6 +83,8 @@ _util_read:
 	ret
 	
 _util_reboot:
+	mov si, _msg_newline
+	call _util_print			; print newline
 	mov si, _msg_reboot
 	call _util_print			; print reboot message
 	call _util_wait
@@ -105,5 +107,8 @@ _msg_done:
 _msg_fail:
 	db 'Failed!', 0x00
 
+_msg_newline:
+	db 0x0d, 0x0a, 0x00
+
 _msg_reboot:
-	db 0x0d, 0x0a, 0x0d, 0x0a, 'Press any key to reboot...', 0x00
+	db 'Press any key to reboot...', 0x00

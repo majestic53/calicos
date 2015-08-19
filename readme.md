@@ -13,6 +13,10 @@ Changelog
 =========
 
 ##Version 0.1.1534
+*Updated: 8/`8/2015*
+
+* Added graphical second stage boot loader (partial)
+
 *Updated: 8/17/2015*
 
 * Initial commit
