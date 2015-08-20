@@ -30,7 +30,7 @@
 	db 'CALICOS', 0x00			; oem identifier
 	dw 0x200				; bytes per sector
 	db 0x01					; sectors per cluster
-	dw 0x03					; reserved sectors
+	dw 0x04					; reserved sectors
 	db 0x02					; number of fats
 	dw 0x200				; root entries
 	dw 0x4000				; small number of sectors
@@ -40,7 +40,7 @@
 	dw 0x0000				; number of heads
 	dq 0x00000000				; hidden sectors
 	dq 0x00000000				; large number of sectors
-_drv_number:
+_drive_number:
 	db 0x80					; drive number
 	db 0x00					; reserved
 	db 0x29					; extended signature
@@ -66,11 +66,11 @@ _boot:
 	mov si, _msg_load
 	call _util_print			; print load message
 
-	mov al, 0x02				; read sector count
+	mov al, 0x03				; read sector count
 	mov ch, 0x00				; track to read
 	mov cl, 0x02				; sector to read
 	mov dh, 0x00				; head to read
-	mov dl, [_drv_number]			; driver number to read from
+	mov dl, byte [_drive_number]		; driver number to read from
 	mov bx, 0x7e00				; memory offset to write into
 	mov es, bx
 	mov bx, 0x0000

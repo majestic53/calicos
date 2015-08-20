@@ -55,7 +55,7 @@ _util_print:
 	pusha
 	push si
 ._util_print_next:
-	mov al, [si]				; retrieve character
+	mov al, byte [si]			; retrieve character
 	cmp al, 0x00
 	je ._util_print_done			; exit on terminator
 	mov ah, 0x0e
@@ -64,6 +64,36 @@ _util_print:
 	jmp ._util_print_next
 ._util_print_done:
 	pop si
+	popa
+	ret
+
+_util_print_hex:
+	pusha
+._util_print_hex_nimble_high:
+	mov al, bl
+	and al, 0xf0
+	shr al, 0x04				; isolate high nibble
+	cmp al, 0x0a
+	jnl ._util_print_hex_alpha_high
+	add al, 0x30				; offset by ascii digit characters
+	jmp ._util_print_hex_print_high
+._util_print_hex_alpha_high:
+	add al, 0x37				; offset by ascii alpha characters
+._util_print_hex_print_high:
+	mov ah, 0x0e
+	int 0x10				; print character
+._util_print_hex_nimble_low:
+	mov al, bl
+	and al, 0x0f				; isolate low nibble
+	cmp al, 0x0a
+	jnl ._util_print_hex_alpha_low
+	add al, 0x30				; offset by ascii digit characters
+	jmp ._util_print_hex_print_low
+._util_print_hex_alpha_low:
+	add al, 0x37				; offset by ascii alpha characters
+._util_print_hex_print_low:
+	mov ah, 0x0e
+	int 0x10				; print character
 	popa
 	ret
 
@@ -102,10 +132,10 @@ _util_wait:
 ; ========================
 
 _msg_done:
-	db 'Done.', 0x00
+	db ' Done.', 0x00
 
 _msg_fail:
-	db 'Failed!', 0x00
+	db ' Failed!', 0x00
 
 _msg_newline:
 	db 0x0d, 0x0a, 0x00

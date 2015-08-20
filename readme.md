@@ -13,7 +13,12 @@ Changelog
 =========
 
 ##Version 0.1.1534
-*Updated: 8/`8/2015*
+*Updated: 8/19/2015*
+
+* Added graphical second stage boot loader (partial)
+* Added utility routines to load FAT/ROOT sectors (partial)
+
+*Updated: 8/18/2015*
 
 * Added graphical second stage boot loader (partial)
 

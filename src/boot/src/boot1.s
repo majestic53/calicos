@@ -23,12 +23,35 @@
 	jmp short _boot				; jump to boot code
 
 ; ========================
+; Boot Parameter Section
+; ========================
+
+_bytes_per_sector:
+	dw 0x200				; bytes per sector
+_sectors_per_cluster:
+	db 0x01					; sectors per cluster
+_reserved_sector_count:
+	dw 0x04					; reserved sectors
+_fat_count:
+	db 0x02					; number of fats
+_root_count:
+	dw 0x200				; root entries
+_sector_count:
+	dw 0x4000				; small number of sectors
+_sector_per_fat:
+	dw 0x200				; sectors per fat
+_drive_number:
+	db 0x80					; drive number
+_kernel_name:
+	db 'CCOS.SYS', 0x00			; kernel file name
+
+; ========================
 ; Boot Code Section
 ; ========================
 
 _boot:
 	cli
-	mov ax, 0x7e00				; clear registers
+	mov ax, cs				; clear registers
 	mov ds, ax
 	mov es, ax
 	mov ss, ax
@@ -36,15 +59,16 @@ _boot:
 	mov sp, 0x7e00				; setup stack
 	sti
 
-	jmp _boot_menu
-	mov al, [_var_pos]
+	call _boot_menu
+	mov al, byte [_var_pos]
+._boot_option_0:
 	cmp al, 0x00				; compare against load
 	jne ._boot_option_1
 	call _load
 ._boot_option_1:
 	cmp al, 0x01				; compare against reboot
 	jne ._boot_option_end
-	call _util_reboot
+	int 0x19				; reboot
 ._boot_option_end:
 	call _util_freeze
 
@@ -87,7 +111,7 @@ _boot_menu:
 	mov si, _msg_space
 	call _util_print_rep			; print space
 
-	mov al, [_var_pos]
+	mov al, byte [_var_pos]
 	cmp al, 0x00				; compare against load
 	jne ._boot_menu_option_0
 	mov bh, 0x70				; color
@@ -109,7 +133,7 @@ _boot_menu:
 	mov si, _msg_space
 	call _util_print_rep			; print space
 
-	mov al, [_var_pos]
+	mov al, byte [_var_pos]
 	cmp al, 0x01				; compare against reboot
 	jne ._boot_menu_option_1
 	mov bh, 0x70				; color
@@ -149,7 +173,6 @@ _boot_menu:
 	call _util_print_col
 	mov si, _msg_copy
 	call _util_print			; print copyright message
-
 	call _util_hide_cur			; hide cursor
 
 ._boot_menu_wait:
@@ -161,21 +184,33 @@ _boot_menu:
 ._boot_menu_up:
 	cmp ah, 0x48				; detect up key
 	jne ._boot_menu_down
-	mov al, [_var_pos]
+	mov al, byte [_var_pos]
 	cmp al, 0x00
 	je ._boot_menu_wait
 	mov al, 0x00
-	mov [_var_pos], al
+	mov byte [_var_pos], al
 	jmp ._boot_menu_redraw
 ._boot_menu_down:
 	cmp ah, 0x50				; detect down key
-	jne ._boot_menu_wait
-	mov al, [_var_pos]
+	jne ._boot_menu_1
+	mov al, byte [_var_pos]
 	cmp al, 0x01
 	je ._boot_menu_wait
 	mov al, 0x01
-	mov [_var_pos], al
+	mov byte [_var_pos], al
 	jmp ._boot_menu_redraw
+._boot_menu_1:					; detect number 1 key
+	cmp ah, 0x02
+	jne ._boot_menu_2
+	mov al, 0x00
+	mov byte [_var_pos], al
+	je ._boot_menu_redraw
+._boot_menu_2:					; detect number 2 key
+	cmp ah, 0x03
+	jne ._boot_menu_wait
+	mov al, 0x01
+	mov byte [_var_pos], al
+	je ._boot_menu_redraw
 ._boot_menu_done:
 	popa
 	ret
@@ -184,10 +219,9 @@ _load:
 	call _util_clear			; clear screen
 	mov si, _msg_load
 	call _util_print			; print load message
+	call _util_read_root			; read in root table
 
 	; TODO
-	mov si, _msg_newline
-	call _util_print
 	call _util_reboot
 	; ---
 
@@ -200,13 +234,13 @@ _load:
 _util_hide_cur:
 	pusha
 	mov ah, 0x0f
-	int 0x10
-	mov [_var_page_num], bh
+	int 0x10				; retrieve page number
+	mov byte [_var_page_num], bh
 	mov ah, 0x02
-	mov bh, [_var_page_num]
+	mov bh, byte [_var_page_num]
 	mov dh, 0x1a
 	mov dl, 0x51
-	int 0x10
+	int 0x10				; set cursor position off-screen
 	popa
 	ret
 
@@ -238,15 +272,63 @@ _util_print_col:
 	popa
 	ret
 
+_util_read_root:
+	pusha
+	push bx
+	push cx
+	push dx
+	xor cx, cx
+	xor dx, dx
+	mov ax, 0x0020				; root entry byte size
+	mul word [_root_count]			; root table byte size
+	div word [_bytes_per_sector]		; root table sector size
+	xchg ax, cx
+	mov al, byte [_fat_count]		; fat table count
+	mul word [_sector_per_fat]		; fat table byte size
+	add ax, word [_reserved_sector_count]	; offset by reserved sector count
+	mov word [_var_sector], ax		; root directory address
+	add word [_var_sector], cx
+
+	; TODO
+	;   B    F0     F1     R
+	; [ 4 ][ 200 ][ 200 ][ 20 ]
+	mov si, _msg_sec_offset
+	call _util_print
+	mov bl, ah
+	call _util_print_hex
+	mov bl, al
+	call _util_print_hex
+	mov si, _msg_sec_root
+	call _util_print
+	mov bl, ch
+	call _util_print_hex
+	mov bl, cl
+	call _util_print_hex
+	call _util_reboot
+_msg_sec_offset:
+	db 0x0d, 0x0a, 'Sector Offset: 0x', 0x00
+_msg_sec_root:
+	db 0x0d, 0x0a, 'Root sector Count: 0x', 0x00
+	; ---
+
+	pop dx
+	pop cx
+	pop bx
+	popa
+	ret
+
 ; ========================
 ; Boot Variable Section
 ; ========================
 
 _var_page_num:
-	db 0					; active page number
+	db 0x00					; active page number
 
 _var_pos:
-	db 0					; position index (0: load, 1: exit)
+	db 0x00					; position index (0: load, 1: exit)
+
+_var_sector:
+	dw 0x0000				; sector data
 
 ; ========================
 ; Boot String Section
@@ -295,4 +377,4 @@ _msg_space:
 ; Boot Fill Section
 ; ========================
 
-	times 0x0400 - ($ - $$) db 0x00
+	times 0x0600 - ($ - $$) db 0x00
